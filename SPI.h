@@ -65,7 +65,7 @@ void SPI_SRAM_Config(void);
 void SPI_SRAM_Write(int CS, unsigned long int reg_add, int data);
 int SPI_SRAM_Read(int CS, unsigned long int reg_add);
 void SPI_SRAM_BlockWrite(int CS, unsigned long int reg_add, int data[]);
-void SPI_SRAM_BlockRead(int CS, unsigned long int reg_add, int value[]);
+void SPI_SRAM_BlockRead(int CS, unsigned long int reg_add, int value[], int elements);
 
 
 #endif      /*    SPI.H    */

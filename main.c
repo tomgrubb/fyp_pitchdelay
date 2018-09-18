@@ -106,7 +106,7 @@
 #include "dsp.h"
 #include "control_tables.h"  
 #include "global.h"
-#include "testSignal.h"
+//#include "testSignal.h"
 
 #define BL 11                           // number of coefficients for FIR filter
 #define LOG2_BLOCK_LENGTH  		8            
@@ -122,6 +122,9 @@ int rxBufferB[FRAME] __attribute__((space(dma)));
 int bufferA[FRAME];
 int bufferB[FRAME];
 int bufferC[FRAME];
+int filteredInput[FRAME];
+
+int timeValueBuffer[10];
 
 int R = 2;
 FIRStruct FIRfilter;
@@ -147,7 +150,7 @@ fractcomplex twiddleFactorsFFT[FFT_BLOCK_LENGTH/2] __attribute__((space(xmemory)
 // Twiddle Factor array for IFFT
 fractcomplex twiddleFactorsIFFT[IFFT_BLOCK_LENGTH/2] __attribute__((space(xmemory), aligned(FFT_BLOCK_LENGTH*2*2))); 
 
-// ==================================================================================
+// ===========================================================================
 
 
 /* ===========================================================================
@@ -156,18 +159,10 @@ fractcomplex twiddleFactorsIFFT[IFFT_BLOCK_LENGTH/2] __attribute__((space(xmemor
  *
  * ========================================================================== */
 
-// TIMER 1 ISR - toggles LED on RA0
-void __attribute__((interrupt, no_auto_psv)) _T1Interrupt(void)
-{
-    IFS0bits.T1IF = 0;           // clear TIMER1 flag    
-    //LATAbits.LATA0 ^= 1;        // toggle RA0
-}
-
 // DMA0 ISR - indicate that TX buffer is empty, set flag
 void __attribute__((__interrupt__,no_auto_psv)) _DMA0Interrupt(void)
 {
     IFS0bits.DMA0IF = 0;        // clear DMA0 IRQ flag
-    //LATAbits.LATA0 ^= 1;        // toggle RA0
     flagTX = 1;                 // transfer buffer is empty 
 }
 
@@ -175,7 +170,6 @@ void __attribute__((__interrupt__,no_auto_psv)) _DMA0Interrupt(void)
 void __attribute__((__interrupt__,no_auto_psv)) _DMA1Interrupt(void)
 {
     IFS0bits.DMA1IF = 0;        // clear DMA1 IRQ flag
-    LATAbits.LATA0 ^= 1;
     flagRX = 1;                 // receive buffer is full
 }
 
@@ -183,151 +177,85 @@ void __attribute__((__interrupt__,no_auto_psv)) _DMA1Interrupt(void)
 
 // increment each delay taps pointers, wrap around if necessary
 void delayPtrIncrement(void)
-{
-    unsigned long testMax = 65536;
-    
+{   
     // Delay Line 'A'
-    writePtrA += (2*FRAME);
+    writePtrA += BLOCK;     // increment write pointer by one block
     
-    // approaching the end of the buffer
-    if (RAM_WritePtrA == maxMemA)
+    if (writePtrA > maxPtr)    // pointer is beyond memory boundary
     {
-        if (writePtrA >= timeA)
+        writePtrA = 0;
+        RAM_WritePtrA++;
+        if (RAM_WritePtrA > maxMem[0])
         {
-            writePtrA = 0;
-            RAM_WritePtrA = 0;
-        }
-    }
-    else
-    {
-        if (writePtrA >= maxPtr)
-        {
-            writePtrA = 0;
-            RAM_WritePtrA++;
-        }
-    }
-    
-    readPtrA += (2*FRAME);
-    
-    // approaching the end of the buffer
-    if (RAM_ReadPtrA == maxMemA)
-    {
-        if (readPtrA >= timeA)
-        {
-            readPtrA = 0;
-            RAM_ReadPtrA = 0;
-        }
-    }
-    else
-    {
-        if (readPtrA >= maxPtr)
-        {
-            readPtrA = 0;
-            RAM_ReadPtrA++;
-        }
-    }
-    
-    // Delay Line 'B'
-    writePtrB += (2*FRAME);
-    
-    // approaching the end of the buffer
-    if (RAM_WritePtrB == maxMemA)
-    {
-        if (writePtrB >= timeA)
-        {
-            writePtrB = 0;
-            RAM_WritePtrB = 0;
-        }
-    }
-    else
-    {
-        if (writePtrB >= maxPtr)
-        {
-            writePtrB = 0;
-            RAM_WritePtrB++;
-        }
-    }
-    
-    readPtrB += (2*FRAME);
-    
-    // approaching the end of the buffer
-    if (RAM_ReadPtrB == maxMemA)
-    {
-        if (readPtrB >= timeA)
-        {
-            readPtrB = 0;
-            RAM_ReadPtrB = 0;
-        }
-    }
-    else
-    {
-        if (readPtrB >= maxPtr)
-        {
-            readPtrB = 0;
-            RAM_ReadPtrB++;
+            RAM_WritePtrA = memStart[0];
         }
     }
 }
 
-//void crossFade(int numElems, fractional* dstV, fractional* srcV1, fractional* srcV2)
-//{
-//    // scale vector 1 by crossfade gain structure
-//    VectorMultiply(numElems, srcV1, srcV1, &crossFadeGainA);
-//    // scale vector 2 by crossfade gain structure
-//    VectorMultiply(numElems, srcV1, srcV2, &crossFadeGainB);
-//    // sum scaled vectors
-//    VectorAdd(numElems, dstV, srcV1, dstV);
-//}
-
-void FFTroutine(int *input, int *output)
+void setDelayTap(long int delayTime)
 {
-    int i; 
-    int	peakFrequencyBin = 0;				/* Declare post-FFT variables to compute the */
-    unsigned long peakFrequency = 0;			/* frequency of the largest spectral component */
- 
-	fractional *p_real = &fractSignal[0].real ;
-	fractcomplex *p_cmpx = &fractSignal[0] ;
-
-
-	TwidFactorInit (LOG2_BLOCK_LENGTH, &twiddleFactorsFFT[0], 0);	/* We need to do this only once at start-up */
-
-	for ( i = 0; i < FFT_BLOCK_LENGTH; i++ )/* The FFT function requires input data */
-	{					/* to be in the fractional fixed-point range [-0.5, +0.5]*/
-		*p_real = *p_real >>1 ;		/* So, we shift all data samples by 1 bit to the right. */
-		*p_real++;			/* Should you desire to optimize this process, perform */
-	}					/* data scaling when first obtaining the time samples */
-						/* Or within the BitReverseComplex function source code */
-
-	p_real = &fractSignal[(FFT_BLOCK_LENGTH/2)-1].real ;	/* Set up pointers to convert real array */
-	p_cmpx = &fractSignal[FFT_BLOCK_LENGTH-1] ; /* to a complex array. The input array initially has all */
-						/* the real input samples followed by a series of zeros */
-
-
-	for ( i = FFT_BLOCK_LENGTH; i > 0; i-- ) /* Convert the Real input sample array */
-	{					/* to a Complex input sample array  */
-		(*p_cmpx).real = (*p_real--);	/* We will simpy zero out the imaginary  */
-		(*p_cmpx--).imag = 0x0000;	/* part of each data sample */
-	}
-
-	FFTComplexIP (LOG2_BLOCK_LENGTH, &fractSignal[0], &twiddleFactorsFFT[0], COEFFS_IN_DATA);
-
-	/* Store output samples in bit-reversed order of their addresses */
-	BitReverseComplex (LOG2_BLOCK_LENGTH, &fractSignal[0]);
-
-	/* Compute the square magnitude of the complex FFT output array so we have a Real output vetor */
-	SquareMagnitudeCplx(FFT_BLOCK_LENGTH, &fractSignal[0], &fractSignal[0].real);
-
-	/* Find the frequency Bin ( = index into the SigCmpx[] array) that has the largest energy*/
-	/* i.e., the largest spectral component */
-	VectorMax(FFT_BLOCK_LENGTH/2, &fractSignal[0].real, &peakFrequencyBin);
-
-	/* Compute the frequency (in Hz) of the largest spectral component */
-	peakFrequency = peakFrequencyBin*(10000/FFT_BLOCK_LENGTH);
+    long int diff = 0;
+    diff = timeA - nextTimeA;
+    
+//    if ((100 < diff)||(diff < -100))
+//    {
+//        if (!fade)                              // already cross-fading?
+//        {
+//            fade = 1;                           // enable cross-fade
+//            targTimeA = nextTimeA;              // set target time
+//            cFadePtrA = writePtrA - nextTimeA;  // set cross fade buffer read point
+//            RAM_FadePtrA = RAM_WritePtrA;
+//            if (cFadePtrA < 0)
+//            {
+//                cFadePtrA += boundary;
+//                RAM_FadePtrA--;
+//                if (RAM_FadePtrA < memStart[0])
+//                {
+//                    RAM_FadePtrA = maxMem[0];
+//                }
+//            }
+//        }
+//    }
+//    else
+    
+    if (diff > 0)
+    {
+        timeA -= 6;
+    }
+    else if (diff < 0)
+    {
+        timeA += 6;
+    }
+//    {
+//        diff = diff/10;
+//        if ((-5 < diff) && (diff < 5))
+//        {
+//            timeA = nextTimeA;
+//        }
+//        else
+//        {
+//            timeA -= diff;
+//            timeA = timeA/2;
+//            timeA = 2*timeA;
+//        }
+//    }
+    
+    readPtrA = writePtrA - timeA;
+    RAM_ReadPtrA = RAM_WritePtrA;
+    if (readPtrA < 0)
+    {
+        readPtrA += boundary;
+        RAM_ReadPtrA--;
+        if (RAM_ReadPtrA < memStart[0])
+        {
+            RAM_ReadPtrA = maxMem[0];
+        }
+    }
 }
 
 void processRxData(void)
 {   
-    if (count < 1000)
+    if (count < 500)
     {
         count++;
     }
@@ -335,21 +263,35 @@ void processRxData(void)
     {
         if (buffer)
         {
-            //loopBack(rxBufferA, txBufferA);
+            blockDC(rxBufferA, filteredInput, &xz1, &yz1);
+            //loopBack(filteredInput, txBufferA);
             //FFTroutine(fractSignal, bufferA);
-            //delayEngine(rxBufferA, bufferA, RAM_ReadPtrA, RAM_WritePtrA, readPtrA, writePtrA, fbkA);
-            //delayEngine(rxBufferA, bufferB, RAM_ReadPtrB, RAM_WritePtrB, readPtrB, writePtrB, fbkB);
-            holdEngine(rxBufferA, bufferA, holdBuffer, RAM_ReadPtrA, RAM_WritePtrA, readPtrA, writePtrA, fbkA);
-            mixer(bufferA, bufferB, bufferC, lvlA, 0x0, 0x0, txBufferA);
+            delayEngine(filteredInput, bufferA, RAM_ReadPtrA, RAM_WritePtrA, readPtrA, writePtrA, fbkA, 0, cFadePtrA, RAM_FadePtrA, fade);
+            //delayEngine(rxBufferA, bufferB, RAM_ReadPtrB, RAM_WritePtrB, readPtrB, writePtrB, fbkB, 0);
+            mixer(bufferA, bufferB, bufferC, lvlA, lvlB, 0x0, txBufferA);
         }
         else
         {
-            //loopBack(rxBufferB, txBufferB);
+            blockDC(rxBufferB, filteredInput, &xz1, &yz1);
+            //loopBack(filteredInput, txBufferB);
             //FFTroutine(fractSignal, bufferA);
-            //delayEngine(rxBufferB, bufferA, RAM_ReadPtrA, RAM_WritePtrA, readPtrA, writePtrA, fbkA);
-            //delayEngine(rxBufferB, bufferB, RAM_ReadPtrB, RAM_WritePtrB, readPtrB, writePtrB, fbkB);
-            holdEngine(rxBufferB, bufferA, holdBuffer, RAM_ReadPtrA, RAM_WritePtrA, readPtrA, writePtrA, fbkA);
-            mixer(bufferA, bufferB, bufferC, lvlA, 0x0, 0x0, txBufferB);
+            delayEngine(filteredInput, bufferA, RAM_ReadPtrA, RAM_WritePtrA, readPtrA, writePtrA, fbkA, 0, cFadePtrA, RAM_FadePtrA, fade);
+            //delayEngine(rxBufferB, bufferB, RAM_ReadPtrB, RAM_WritePtrB, readPtrB, writePtrB, fbkB, 0);
+            mixer(bufferA, bufferB, bufferC, lvlA, lvlB, 0x0, txBufferB);
+        }
+        if (fade > 0)
+        {
+            fadeCount++;
+            if (fadeCount >= 3)
+            {
+                fadeCount = 0;
+                fade++;
+                if (fade > 8)
+                {
+                    fade = 0;
+                    timeA = targTimeA;
+                }
+            }
         }
         delayPtrIncrement();
     }
@@ -362,131 +304,69 @@ void FFTinit(void)
     HanningInit(FFT_BLOCK_LENGTH, &window);
 }
 
+// read input parameters from control system
+void fetchData(void)
+{   
+    I2C_ReadPIC(0xA0, &testValue);
+    fbkA = fbkValues[testValue];   
+
+    I2C_ReadPIC(0xA4, &testValue);
+    lvlA = levelValues[testValue];
+
+    I2C_ReadPIC(0xA8, &testValue);
+    potVal = testValue;
+    nextTimeA = timeValues[potVal];
+    
+    setDelayTap();
+}
+
 void system_setup(void)
 {
     clock_init();               // setup PLL clock for 40 MIPS
     interrupt_purge();          // ensure IRQ config not awry
-    FFTinit();
+    //FFTinit();
+    //FIRDelayInit(&FIRdcblock);
+    
     system_init();              // define IO states and startup states
     
-//    interrupts_init();          // global interrupt setup
-//    
-//    I2C_Init();
-//    
-//    codec_setup();              // configure CODEC via I2C
-//    DMA_init();                 // configure DMA0 and DMA1 for ping-pong RX/TX
-//    I2S_init();                 // configure DCI for I2S with DMA
-//    
-//    SPI_init();                 // configure SPI module for SRAM
-//    purge_RAM();                // ensure all RAM is empty
-//    I2Sbuffer_init();           // fill RX and TX buffers with null values
-//    
-//    I2S_start();                // start up I2S and for initial DMA transfer
-}
-
-void fetchData(void)
-{
-    I2C_ReadPIC(0xA0, &testValue);   // retrieve data
-    testValue = testValue>>1;
-    fbkA = fbkValues[testValue];
-
-    I2C_ReadPIC(0xA4, &testValue);   // retrieve data
-    testValue = testValue>>1;
-    lvlA = levelValues[testValue];
-
-    I2C_ReadPIC(0xA8, &testValue);   // retrieve data
-    testValue = testValue>>1;
-    timeA = timeValues[testValue];
+    interrupts_init();          // global interrupt setup
     
-    if (timeA >= maxPtr)
-    {
-        timeA -= maxPtr;
-        maxMemA = 1;
-        if (timeA >= maxPtr)
-        {
-            timeA -= maxPtr;
-            maxMemA = 2;
-        }
-    }
-    else (maxMemA = 0);
-
-    if (timeA < 0)
-    {
-        timeA = 0;
-    }
+    I2C_Init();
+    codec_setup();              // configure CODEC via I2C
+    DMA_init();                 // configure DMA0 and DMA1 for ping-pong RX/TX
+    I2S_init();                 // configure DCI for I2S with DMA
+    
+    SPI_init();                 // configure SPI module for SRAM
+    purge_RAM();                // ensure all RAM is empty
+    I2Sbuffer_init();           // fill RX and TX buffers with null values
+    
+    fetchData();
+    
+    I2S_start();                // start up I2S and for initial DMA transfer
 }
 
 // =========================== [ MAIN LOOP] ===================================
 int main(void)
-{
+{    
     //BartlettInit(FRAME, &cFadeBartlett[0]);
-    //system_setup();
-    
+    system_setup();    
     
     LATAbits.LATA1 = 0;
     LATAbits.LATA0 = 0;
     flagRX = 0;
     flagTX = 0;
-
-        int i; 
-        int	peakFrequencyBin = 0;				/* Declare post-FFT variables to compute the */
-        unsigned long peakFrequency = 0;			/* frequency of the largest spectral component */
-
-        fractional *p_real = &fractSignal[0].real;
-        fractcomplex *p_cmpx = &fractSignal[0];
-        
-        TwidFactorInit (LOG2_BLOCK_LENGTH, &twiddleFactorsFFT[0], 0);	/* We need to do this only once at start-up */
-        TwidFactorInit (LOG2_BLOCK_LENGTH, &twiddleFactorsIFFT[0], 0x1);	/* We need to do this only once at start-up */
-
-        for ( i = 0; i < FFT_BLOCK_LENGTH; i++ )/* The FFT function requires input data */
-        {					/* to be in the fractional fixed-point range [-0.5, +0.5]*/
-            *p_real = *p_real >>1 ;		/* So, we shift all data samples by 1 bit to the right. */
-            *p_real++;			/* Should you desire to optimize this process, perform */
-        }					/* data scaling when first obtaining the time samples */
-                            /* Or within the BitReverseComplex function source code */
-
-        p_real = &fractSignal[(FFT_BLOCK_LENGTH/2)-1].real ;	/* Set up pointers to convert real array */
-        p_cmpx = &fractSignal[FFT_BLOCK_LENGTH-1] ; /* to a complex array. The input array initially has all */
-                            /* the real input samples followed by a series of zeros */
-
-
-        for ( i = FFT_BLOCK_LENGTH; i > 0; i-- ) /* Convert the Real input sample array */
-        {					/* to a Complex input sample array  */
-            (*p_cmpx).real = (*p_real--);	/* We will simpy zero out the imaginary  */
-            (*p_cmpx--).imag = 0x0000;	/* part of each data sample */
-        }
-
-        FFTComplexIP (LOG2_BLOCK_LENGTH, &fractSignal[0], &twiddleFactorsFFT[0], COEFFS_IN_DATA);
-        BitReverseComplex (LOG2_BLOCK_LENGTH, &fractSignal[0]);
-        IFFTComplexIP (LOG2_BLOCK_LENGTH, &fractSignal[0], &twiddleFactorsIFFT[0], COEFFS_IN_DATA);
-        FFTComplexIP (LOG2_BLOCK_LENGTH, &fractSignal[0], &twiddleFactorsFFT[0], COEFFS_IN_DATA);
-        /* Store output samples in bit-reversed order of their addresses */
-        BitReverseComplex (LOG2_BLOCK_LENGTH, &fractSignal[0]);
-
-        /* Compute the square magnitude of the complex FFT output array so we have a Real output vetor */
-        SquareMagnitudeCplx(FFT_BLOCK_LENGTH, &fractSignal[0], &fractSignal[0].real);
-
-        /* Find the frequency Bin ( = index into the SigCmpx[] array) that has the largest energy*/
-        /* i.e., the largest spectral component */
-        VectorMax(FFT_BLOCK_LENGTH/2, &fractSignal[0].real, &peakFrequencyBin);
-
-        /* Compute the frequency (in Hz) of the largest spectral component */
-        peakFrequency = peakFrequencyBin*(10000/FFT_BLOCK_LENGTH);
     
     while(1)
     {
        if (flagRX & flagTX)
-       // if (1)
        {              
-            LATAbits.LATA1 = 1;
             processRxData();
-            LATAbits.LATA1 = 0;
             
             // reset flags and swap targeted buffer
             buffer ^= 1;
             flagRX = 0;
             flagTX = 0;
+            fetchData();
        }
-       //fetchData();
     }
 }

@@ -12,6 +12,7 @@
       <itemPath>global.h</itemPath>
       <itemPath>testSignal.h</itemPath>
       <itemPath>hold.h</itemPath>
+      <itemPath>crossfade.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -22,10 +23,10 @@
                    projectFiles="true">
       <itemPath>main.c</itemPath>
       <itemPath>DCI.c</itemPath>
-      <itemPath>UART.c</itemPath>
       <itemPath>serial_comms.c</itemPath>
       <itemPath>system.c</itemPath>
       <itemPath>engines.c</itemPath>
+      <itemPath>filtering.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -41,7 +42,7 @@
         <targetDevice>dsPIC33FJ128GP802</targetDevice>
         <targetHeader></targetHeader>
         <targetPluginBoard></targetPluginBoard>
-        <platformTool>Simulator</platformTool>
+        <platformTool>ICD3PlatformTool</platformTool>
         <languageToolchain>XC16</languageToolchain>
         <languageToolchainVersion>1.33</languageToolchainVersion>
         <platform>4</platform>
@@ -88,7 +89,7 @@
         <property key="enable-unroll-loops" value="true"/>
         <property key="extra-include-directories" value=""/>
         <property key="isolate-each-function" value="false"/>
-        <property key="keep-inline" value="false"/>
+        <property key="keep-inline" value="true"/>
         <property key="oXC16gcc-align-arr" value="false"/>
         <property key="oXC16gcc-cnsts-mauxflash" value="false"/>
         <property key="oXC16gcc-data-sects" value="false"/>

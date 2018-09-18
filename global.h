@@ -3,6 +3,10 @@
 
 // DEFINE GLOBAL VARIABLES
 
+int zDC[2] = {0,0}; // delayed values xz1 and yz1 for dc blocker
+int xz1 = 0;
+int yz1 = 0;
+
 int tempBuffer[FRAME];
 int testValue = 0;
 
@@ -11,21 +15,28 @@ int flagRX = 0;     // flag for RX buffer full
 int flagTX = 0;     // flag for TX buffer empty
 int buffer = 1;     // indicator for ping-pong buffer target
 int reverse = 0;    // enable variable for reverse delay
+int fadeCount = 0;
+
 
 int fbkA = 0x4000;  // feedback coefficient for delay A
 int fbkB = 0x4000;
 int lvlA = 0x8000;  // level coefficient for delay A
 int lvlB = 0x8000;
-unsigned long timeA = maxPtr;
-int maxMemA = 0;
+int indexTimeA = 50;
+unsigned long timeA = 24500;
+long int nextTimeA = 0;
+long int targTimeA = 0;
+int fade = 0;
+int potVal = 100;
+
+char maxMem[3] = {1, 2, 3};
+char memStart[3] = {1, 2, 3};
+
+int timeCount = 0;
 
 // pointers to selected buffer
 int *rxPtr;
 int *txPtr;
-
-//int *buffPtrA;
-//int *buffPtrB;
-//int *feedPtr;
 
 // individual buffers for each delay tap
 int bufferA[FRAME];
@@ -38,24 +49,24 @@ int feedback[FRAME];
 int holdBuffer[FRAME];
 
 // cross fade variables
-int crossScaleA[4] = { 0x1000, 0x4000, 0x6000, 0x7000 };
-int crossScaleB[4] = { 0x7000, 0x6000, 0x4000, 0x1000 };
 int indexC = 0;
 long int crossCount = 0;
 int dir = 1;
+int mod = 0;
+long int modCount = 0;
+long int changeCount = 0;
 
 // DELAY POINTERS
-long int readPtrA = 50*FRAME;      // read pointer for buffer A
-long int writePtrA = 0;            // write pointer for buffer A
-int RAM_ReadPtrA = 0;              // RAM pointer for reading A
-int RAM_WritePtrA = 0;             // RAM pointer for writing A
+long int cFadePtrA = 0;            // crossfade pointer for time change 
+long int readPtrA = 0;             // read pointer for buffer A
+long int writePtrA = (200*FRAME);  // write pointer for buffer A
+int RAM_ReadPtrA = 1;              // RAM pointer for reading A
+int RAM_WritePtrA = 1;             // RAM pointer for writing A
+int RAM_FadePtrA = 1;
 
 long int readPtrB = 0;             // read pointer for buffer B
 long int writePtrB = (60*FRAME);   // write pointer for buffer B
-int RAM_WritePtrB = 2;             // RAM pointer for reading B
-int RAM_ReadPtrB = 2;              // RAM pointer for writing B
-
-//    int testDataIn[FRAME] = { 0xFFAA, 0xAAFF, 0xFAFA };
-//    int testDataOut[FRAME];
+int RAM_WritePtrB = 1;             // RAM pointer for reading B
+int RAM_ReadPtrB = 1;              // RAM pointer for writing B
 
 #endif /* GLOBAL_H */

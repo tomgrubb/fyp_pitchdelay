@@ -13,9 +13,6 @@
 #include "I2C.h"
 #include "SPI.h"
 
-#define FCY 40000000UL
-
-
 /* ===========================================================================
  *
  * 
@@ -39,7 +36,7 @@ void SPI_init(void)
     SPI1CON1bits.SMP = 0;                           // SDI is sampled in middle of SDO time
     
     // ---> SCL = FCY/(PriPRE*SecPRE) = 10 MHz
-    SPI1CON1bits.SPRE = 0b100;                      // 2:1 Second Pre-Scale    
+    SPI1CON1bits.SPRE = 0b101;                      // 2:1 Second Pre-Scale    
     SPI1CON1bits.PPRE = 0x3;                        // 1:1 Primary Pre-Scale
     
     SPI1CON2 = 0x00;                                // DISABLE Frame Sync etc.               
@@ -94,19 +91,19 @@ void SPI_SRAM_Write(int CS, unsigned long int reg_add, int data)
     
     if (CS == 0)
     {
-        LATBbits.LATB3 = 1;                         // pull CS0 high (inactive)
+        CS0 = 0;                         // pull CS0 low (active)
     }
     else if (CS == 1)
     {
-        LATBbits.LATB4 = 1;                         // pull CS1 high (inactive)  
+        CS1 = 0;                         // pull CS1 low (active)  
     }
     else if (CS == 2)
     {
-        LATAbits.LATA4 = 1;                         // pull CS2 high (inactive)
+        CS2 = 0;                         // pull CS2 low (active)
     } 
     else
     {
-        LATBbits.LATB5 = 1;                         // pull CS3 high (inactive)
+        CS3 = 0;                         // pull CS3 low (active)
     }
     
     SPI1STATbits.SPIROV = 0;                        // clear overflow bit
@@ -143,19 +140,19 @@ void SPI_SRAM_Write(int CS, unsigned long int reg_add, int data)
     
     if (CS == 0)
     {
-        LATBbits.LATB3 = 1;                         // pull CS0 high (inactive)
+        CS0 = 1;                         // pull CS0 high (inactive)
     }
     else if (CS == 1)
     {
-        LATBbits.LATB4 = 1;                         // pull CS1 high (inactive)  
+        CS1 = 1;                         // pull CS1 high (inactive)  
     }
     else if (CS == 2)
     {
-        LATAbits.LATA4 = 1;                         // pull CS2 high (inactive)
+        CS2 = 1;                         // pull CS2 high (inactive)
     } 
     else
     {
-        LATBbits.LATB5 = 1;                         // pull CS3 high (inactive)
+        CS3 = 1;                         // pull CS3 high (inactive)
     }
 }
 
@@ -176,19 +173,19 @@ void SPI_SRAM_BlockWrite(int CS, unsigned long int reg_add, int data[])
     
     if (CS == 0)
     {
-        LATBbits.LATB3 = 0;                         // pull CS0 high (active)
+        CS0 = 0;                         // pull CS0 high (active)
     }
     else if (CS == 1)
     {
-        LATBbits.LATB4 = 0;                         // pull CS1 high (active)  
+        CS1 = 0;                         // pull CS1 high (active)  
     }
     else if (CS == 2)
     {
-        LATAbits.LATA4 = 0;                         // pull CS2 high (active)
+        CS2 = 0;                         // pull CS2 high (active)
     } 
     else
     {
-        LATBbits.LATB5 = 0;                         // pull CS3 high (active)
+        CS3 = 0;                         // pull CS3 high (active)
     }
     
     SPI1STATbits.SPIROV = 0;                        // clear overflow bit
@@ -232,19 +229,19 @@ void SPI_SRAM_BlockWrite(int CS, unsigned long int reg_add, int data[])
     
     if (CS == 0)
     {
-        LATBbits.LATB3 = 1;                         // pull CS0 high (inactive)
+        CS0 = 1;                         // pull CS0 high (inactive)
     }
     else if (CS == 1)
     {
-        LATBbits.LATB4 = 1;                         // pull CS1 high (inactive)  
+        CS1 = 1;                         // pull CS1 high (inactive)  
     }
     else if (CS == 2)
     {
-        LATAbits.LATA4 = 1;                         // pull CS2 high (inactive)
+        CS2 = 1;                         // pull CS2 high (inactive)
     } 
     else
     {
-        LATBbits.LATB5 = 1;                         // pull CS3 high (inactive)
+        CS3 = 1;                         // pull CS3 high (inactive)
     }  
 }
 
@@ -263,19 +260,19 @@ int SPI_SRAM_Read(int CS, unsigned long int reg_add)
 
     if (CS == 0)
     {
-        LATBbits.LATB3 = 0;                         // pull CS0 high (active)
+        CS0 = 0;                         // pull CS0 low (active)
     }
     else if (CS == 1)
     {
-        LATBbits.LATB4 = 0;                         // pull CS1 high (active)  
+        CS1 = 0;                         // pull CS1 low (active)  
     }
     else if (CS == 2)
     {
-        LATAbits.LATA4 = 0;                         // pull CS2 high (active)
+        CS2 = 0;                         // pull CS2 low (active)
     } 
     else
     {
-        LATBbits.LATB5 = 0;                         // pull CS3 high (active)
+        CS3 = 0;                         // pull CS3 low (active)
     }
     
     SPI1STATbits.SPIROV = 0;                        // clear overflow bit
@@ -312,19 +309,19 @@ int SPI_SRAM_Read(int CS, unsigned long int reg_add)
    
     if (CS == 0)
     {
-        LATBbits.LATB3 = 1;                         // pull CS0 high (inactive)
+        CS0 = 1;                         // pull CS0 high (inactive)
     }
     else if (CS == 1)
     {
-        LATBbits.LATB4 = 1;                         // pull CS1 high (inactive)  
+        CS1 = 1;                         // pull CS1 high (inactive)  
     }
     else if (CS == 2)
     {
-        LATAbits.LATA4 = 1;                         // pull CS2 high (inactive)
+        CS2 = 1;                         // pull CS2 high (inactive)
     } 
     else
     {
-        LATBbits.LATB5 = 1;                         // pull CS3 high (inactive)
+        CS3 = 1;                         // pull CS3 high (inactive)
     }    
    
     value = (dataHI << 8 | dataLO);
@@ -332,7 +329,7 @@ int SPI_SRAM_Read(int CS, unsigned long int reg_add)
 }
 
 
-void SPI_SRAM_BlockRead(int CS, unsigned long int reg_add, int value[])
+void SPI_SRAM_BlockRead(int CS, unsigned long int reg_add, int value[], int elements)
 {
     char address_HI = 0;      // highest byte of register address
     char address_MID = 0;     // middle byte of register address
@@ -349,19 +346,19 @@ void SPI_SRAM_BlockRead(int CS, unsigned long int reg_add, int value[])
 
     if (CS == 0)
     {
-        LATBbits.LATB3 = 0;                         // pull CS0 high (active)
+        CS0 = 0;                         // pull CS0 low (active)
     }
     else if (CS == 1)
     {
-        LATBbits.LATB4 = 0;                         // pull CS1 high (active)  
+        CS1 = 0;                         // pull CS1 low (active)  
     }
     else if (CS == 2)
     {
-        LATAbits.LATA4 = 0;                         // pull CS2 high (active)
+        CS2 = 0;                         // pull CS2 low (active)
     } 
     else
     {
-        LATBbits.LATB5 = 0;                         // pull CS3 high (active)
+        CS3 = 0;                         // pull CS3 low (active)
     }
     
     SPI1STATbits.SPIROV = 0;                        // clear overflow bit
@@ -387,7 +384,7 @@ void SPI_SRAM_BlockRead(int CS, unsigned long int reg_add, int value[])
     while (SPI1STATbits.SPIRBF == 0) {};            // wait until TX complete
     
     //SPI1STATbits.SPIROV = 0;                        // clear overflow bit
-    for (n = 0; n < FRAME; n++)
+    for (n = 0; n < elements; n++)
     {
         temp = SPI1BUF;
         SPI1BUF = 0x00;                                 // load buffer with something
@@ -403,22 +400,149 @@ void SPI_SRAM_BlockRead(int CS, unsigned long int reg_add, int value[])
    
     if (CS == 0)
     {
-        LATBbits.LATB3 = 1;                         // pull CS0 high (inactive)
+        CS0 = 1;                         // pull CS0 high (inactive)
     }
     else if (CS == 1)
     {
-        LATBbits.LATB4 = 1;                         // pull CS1 high (inactive)  
+        CS1 = 1;                         // pull CS1 high (inactive)  
     }
     else if (CS == 2)
     {
-        LATAbits.LATA4 = 1;                         // pull CS2 high (inactive)
+        CS2 = 1;                         // pull CS2 high (inactive)
     } 
     else
     {
-        LATBbits.LATB5 = 1;                         // pull CS3 high (inactive)
-    }  
+        CS3 = 1;                         // pull CS3 high (inactive)
+    }    
 }
 
+void SPI_SRAM_BoundaryRead(int CS, unsigned long int reg_add, int value[], char line)
+{
+    char address_HI = 0;      // highest byte of register address
+    char address_MID = 0;     // middle byte of register address
+    char address_LO = 0;      // lowest bytes of register address
+    
+    long int firstBlock = ((BLOCK - (reg_add - maxPtr))/2);
+    long int secondBlock = FRAME - firstBlock;
+    
+    int elements[2] = {firstBlock, secondBlock};
+    int temp = 0;
+    int dataHI = 0;
+    int dataLO = 0;
+    int n;
+    int i = 0;
+    int loop = 0;
+       
+    address_HI = reg_add >> 16;          // format high address (bit 17)  
+    address_MID = reg_add >> 8;          // format mid address (bits 16-8)
+    address_LO = (reg_add & 0xFF);       // format low address (bits 7-0) 
+
+    while (loop <= 1)
+    {
+        if (CS == 0)
+        {
+            CS0 = 0;                         // pull CS0 low (active)
+        }
+        else if (CS == 1)
+        {
+            CS1 = 0;                         // pull CS1 low (active)  
+        }
+        else if (CS == 2)
+        {
+            CS2 = 0;                         // pull CS2 low (active)
+        } 
+        else
+        {
+            CS3 = 0;                         // pull CS3 low (active)
+        }
+
+        if (loop > 0)
+        {
+            address_HI = 0x00;                 // format high address (bit 17)  
+            address_MID = 0x00;                // format mid address (bits 16-8)
+            address_LO = 0x00;                 // format low address (bits 7-0) 
+        }  
+        
+        SPI1STATbits.SPIROV = 0;                        // clear overflow bit
+        SPI1STATbits.SPIEN = 1;                         // enable SPI Module 1
+
+        temp = SPI1BUF;                                 // clear flags by reading buffer
+        SPI1BUF = SRAM_READ;                            // send WRITE and highest address byte
+        while (SPI1STATbits.SPIRBF == 0) {};            // wait until TX complete
+
+        SPI1STATbits.SPIROV = 0;                        // clear overflow bit
+        temp = SPI1BUF; 
+        SPI1BUF = address_HI;                           // send high byte of address 
+        while (SPI1STATbits.SPIRBF == 0) {};            // wait until TX complete
+
+        SPI1STATbits.SPIROV = 0;                        // clear overflow bit
+        temp = SPI1BUF; 
+        SPI1BUF = address_MID;                          // send mid byte of address 
+        while (SPI1STATbits.SPIRBF == 0) {};            // wait until TX complete
+
+        SPI1STATbits.SPIROV = 0;                        // clear overflow bit
+        temp = SPI1BUF; 
+        SPI1BUF = address_LO;                           // send low byte of address 
+        while (SPI1STATbits.SPIRBF == 0) {};            // wait until TX complete
+
+        //SPI1STATbits.SPIROV = 0;                        // clear overflow bit
+        for (n = 0; n < elements[loop]; n++)
+        {
+            temp = SPI1BUF;
+            SPI1BUF = 0x00;                                 // load buffer with something
+            while (SPI1STATbits.SPIRBF == 0) {};            // wait until TX complete    
+            dataHI = SPI1BUF;                               // store received data
+
+            SPI1BUF = 0x00;                                 // load buffer with something
+            while (SPI1STATbits.SPIRBF == 0) {};            // wait until TX complete
+            dataLO = SPI1BUF;                               // store received data
+
+            value[i] = (dataHI << 8 | dataLO);
+            i++;
+        }
+
+        if (CS == 0)
+        {
+            CS0 = 1;                         // pull CS0 high (inactive)
+        }
+        else if (CS == 1)
+        {
+            CS1 = 1;                         // pull CS1 high (inactive)  
+        }
+        else if (CS == 2)
+        {
+            CS2 = 1;                         // pull CS2 high (inactive)
+        } 
+        else
+        {
+            CS3 = 1;                         // pull CS3 high (inactive)
+        } 
+        
+        CS++;
+        loop++;
+        if (line == 0)
+        {
+            if (CS > 1)
+            {
+                CS = 1;
+            }
+        }
+        else if (line == 1)
+        {
+            if (CS > 2)
+            {
+                CS = 2;
+            }
+        }
+        else
+        {
+            if (CS > 3)
+            {
+                CS = 3;
+            } 
+        }
+    }
+}
 
 /* ===========================================================================
  *
@@ -432,7 +556,7 @@ void SPI_SRAM_BlockRead(int CS, unsigned long int reg_add, int value[])
 
 int I2C_Read_Reg(char dev_addr, char reg_addr, char *value)
 {
-    char wr_dev_addr = dev_addr << 1;
+//    char wr_dev_addr = dev_addr << 1;
     char rd_dev_addr = (dev_addr << 1) | 0x01;
     
     // Send I2C start condition

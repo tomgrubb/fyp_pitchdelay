@@ -36,6 +36,7 @@ void system_init(void)
     TRISAbits.TRISA1 = 0;       // define pin RA1 as OUTPUT
     TRISAbits.TRISA4 = 0;       // define pin RA4 as OUTPUT
     TRISBbits.TRISB3 = 0;       // define pin RB3 as OUTPUT
+    TRISBbits.TRISB2 = 1;       // define pin RB2 as INPUT
     TRISBbits.TRISB4 = 0;       // define pin RB4 as OUTPUT    
     TRISBbits.TRISB5 = 0;       // define pin RB5 as OUTPUT
     TRISBbits.TRISB6 = 0;       // define pin RB6 as OUTPUT    
@@ -51,15 +52,15 @@ void system_init(void)
     LATBbits.LATB7 = 0;         // pull RB7 pin LOW
 
     // Assign peripheral pins (SPI)
-    __builtin_write_OSCCONL(OSCCON & 0xDF);         // clear IOLOCK 
-    RPOR0bits.RP0R = 0x8;                           // SCL is RP0 (PIN 4)
-    RPINR20bits.SDI1R = 0x1;                        // SDI is RP1 (PIN 5)
-    RPOR1bits.RP2R = 0x7;                           // SDO is RP2 (PIN 6)
+//    __builtin_write_OSCCONL(OSCCON & 0xDF);         // clear IOLOCK 
+//    RPOR0bits.RP0R = 0x8;                           // SCL is RP0 (PIN 4)
+//    RPINR20bits.SDI1R = 0x1;                        // SDI is RP1 (PIN 5)
+//    RPOR1bits.RP2R = 0x7;                           // SDO is RP2 (PIN 6)
     
-//    // USE THESE ASSIGNMENTS FOR NEW PROTO!!
-//    RPOR0bits.RP0R = 0x7;                           // SDO1 is RP0 (PIN 4)
-//    RPOR2bits.RP5R = 0x8;                           // SCL1 is RP1 (PIN 5)
-//    RPINR20bits.SDI1R = 0x2;                        // SDI1 is RP2 (PIN 6)
+    // USE THESE ASSIGNMENTS FOR NEW PROTO!!
+    RPOR0bits.RP0R = 0x7;                           // SDO1 is RP0 (PIN 4)
+    RPOR0bits.RP1R = 0x8;                           // SCL1 is RP1 (PIN 5)
+    RPINR20bits.SDI1R = 0x2;                        // SDI1 is RP2 (PIN 6)
     
     // Assign peripheral pins (I2C / DCI)
     /*
@@ -91,20 +92,6 @@ void interrupt_purge(void)
     IEC3 = 0;
     IEC4 = 0;
     // Now we're ready to go
-}
-
-void TIMER1_init(void)
-{
-    T1CONbits.TCS = 0;
-    T1CONbits.TCKPS = 0x7;
-    T1CONbits.TGATE = 0;
-    T1CONbits.TSIDL = 0;
-
-    IPC0bits.T1IP = 5;
-    IFS0bits.T1IF = 0;
-    IEC0bits.T1IE = 1;
-
-    T1CONbits.TON = 1;
 }
 
 void interrupts_init(void)
@@ -139,7 +126,7 @@ void purge_RAM(void)
     int blank = 0x0;
     for (i = 0; i < 3; i++)
     {
-        for (j = 0; j < maxPtr; j++)
+        for (j = 0; j < boundary; j++)
         {
             SPI_SRAM_Write(i, j, blank);
         }
