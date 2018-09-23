@@ -27,16 +27,11 @@ unsigned long timeA = 24500;
 long int nextTimeA = 0;
 long int targTimeA = 0;
 int fade = 0;
-int potVal = 100;
 
 char maxMem[3] = {1, 2, 3};
 char memStart[3] = {1, 2, 3};
 
 int timeCount = 0;
-
-// pointers to selected buffer
-int *rxPtr;
-int *txPtr;
 
 // individual buffers for each delay tap
 int bufferA[FRAME];
@@ -59,13 +54,13 @@ long int changeCount = 0;
 // DELAY POINTERS
 long int cFadePtrA = 0;            // crossfade pointer for time change 
 long int readPtrA = 0;             // read pointer for buffer A
-long int writePtrA = (200*FRAME);  // write pointer for buffer A
+long int writePtrA = (300*FRAME);  // write pointer for buffer A
 int RAM_ReadPtrA = 1;              // RAM pointer for reading A
 int RAM_WritePtrA = 1;             // RAM pointer for writing A
 int RAM_FadePtrA = 1;
 
 long int readPtrB = 0;             // read pointer for buffer B
-long int writePtrB = (60*FRAME);   // write pointer for buffer B
+long int writePtrB = (100*FRAME);   // write pointer for buffer B
 int RAM_WritePtrB = 1;             // RAM pointer for reading B
 int RAM_ReadPtrB = 1;              // RAM pointer for writing B
 

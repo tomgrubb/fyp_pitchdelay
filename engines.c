@@ -10,32 +10,11 @@ int crossScaleA[8] = { 0x8000, 0x7000, 0x6000, 0x5000, 0x4000, 0x3000, 0x2000, 0
 int crossScaleB[8] = { 0x1000, 0x2000, 0x3000, 0x4000, 0x5000, 0x6000, 0x7000, 0x8000 };
 
 // 'DELAY' MODE
-void delayEngine(int *inBuff, int *outBuff, int ptrRdRAM, int ptrWrRAM, long int readPtr, long int writePtr, int fbk, char line, unsigned long cFadePtr, int cFadeRAM, int fade)
+void delayEngine(int *inBuff, int *outBuff, int ptrRdRAM, int ptrWrRAM, long int readPtr, long int writePtr, int fbk, char line)//, unsigned long cFadePtr, int cFadeRAM, int fade)
 {
     int tempBuff[FRAME];
-    int cFadeBuff[FRAME];
-    int invGain[FRAME];
-    int n;
-    int posFade = 0;
-    int negFade = 0;
     
     long int testPtr = 0;
-   
-    if (fade > 0)   // cross-fading between two delay times
-    {
-        testPtr = cFadePtr + BLOCK;
-        if (testPtr <= boundary)
-        {
-            // read block is within RAM memory boundary
-            SPI_SRAM_BlockRead(cFadeRAM, cFadePtr, cFadeBuff, FRAME);
-        }
-
-        else
-        {
-            // read block crosses RAM memory boundary
-            SPI_SRAM_BoundaryRead(cFadeRAM, cFadePtr, cFadeBuff, line);
-        }
-    }
     
     testPtr = readPtr + BLOCK;
     
@@ -49,59 +28,6 @@ void delayEngine(int *inBuff, int *outBuff, int ptrRdRAM, int ptrWrRAM, long int
     {
         // read block crosses RAM memory boundary
         SPI_SRAM_BoundaryRead(ptrRdRAM, readPtr, outBuff, line);
-    }
-    
-    if (fade > 0)
-    {
-        n = fade - 1;
-        VectorScale(FRAME, outBuff, outBuff, crossScaleA[n]);
-        VectorScale(FRAME, &cFadeBuff, &cFadeBuff, crossScaleB[n]);
-        
-//        if (fade == 1)
-//        {
-//            VectorScale(FRAME, outBuff, outBuff, 0x7000);
-//            VectorScale(FRAME, &cFadeBuff, &cFadeBuff, 0x1000);
-////            for (n = 0; n < FRAME; n++)
-////            {
-////                invGain[n] = 0x8000 - cFadePosA[n];
-////            }
-////            VectorMultiply(FRAME, outBuff, outBuff, &invGain);
-////            VectorMultiply(FRAME, &cFadeBuff, &cFadeBuff, &cFadePosA);
-//        }
-//        else if (fade == 2)
-//        {
-//            VectorScale(FRAME, outBuff, outBuff, 0x5000);
-//            VectorScale(FRAME, &cFadeBuff, &cFadeBuff, 0x3000);
-////            for (n = 0; n < FRAME; n++)
-////            {
-////                invGain[n] = 0x8000 - cFadePosB[n];
-////            }
-////            VectorMultiply(FRAME, outBuff, outBuff, &invGain);
-////            VectorMultiply(FRAME, &cFadeBuff, &cFadeBuff, &cFadePosB);
-//        }
-//        else if (fade == 3)
-//        { 
-//            VectorScale(FRAME, outBuff, outBuff, 0x4000);
-//            VectorScale(FRAME, &cFadeBuff, &cFadeBuff, 0x4000);
-////            for (n = 0; n < FRAME; n++)
-////            {
-////                invGain[n] = 0x8000 - cFadePosC[n];
-////            }
-////            VectorMultiply(FRAME, outBuff, outBuff, &invGain);
-////            VectorMultiply(FRAME, &cFadeBuff, &cFadeBuff, &cFadePosC);
-//        }
-//        else
-//        {   
-//            VectorScale(FRAME, outBuff, outBuff, 0x2000);
-//            VectorScale(FRAME, &cFadeBuff, &cFadeBuff, 0x6000);
-////            for (n = 0; n < FRAME; n++)
-////            {
-////                invGain[n] = 0x8000 - cFadePosD[n];
-////            }
-////            VectorMultiply(FRAME, outBuff, outBuff, &invGain);
-////            VectorMultiply(FRAME, &cFadeBuff, &cFadeBuff, &cFadePosD);
-//        }
-        VectorAdd(FRAME, outBuff, outBuff, &cFadeBuff);
     }
     
     // scale output and store in feedback buffer

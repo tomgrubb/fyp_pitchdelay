@@ -101,7 +101,7 @@
 #include "math.h"
 #include <string.h>
 #include "libpic30.h"
-#include "dma.h"
+//#include "dma.h"
 #include "p33Fxxxx.h"
 #include "dsp.h"
 #include "control_tables.h"  
@@ -195,50 +195,120 @@ void delayPtrIncrement(void)
 void setDelayTap(long int delayTime)
 {
     long int diff = 0;
+    int rem = 0;
+    int test = 0;
     diff = timeA - nextTimeA;
     
-//    if ((100 < diff)||(diff < -100))
-//    {
-//        if (!fade)                              // already cross-fading?
-//        {
-//            fade = 1;                           // enable cross-fade
-//            targTimeA = nextTimeA;              // set target time
-//            cFadePtrA = writePtrA - nextTimeA;  // set cross fade buffer read point
-//            RAM_FadePtrA = RAM_WritePtrA;
-//            if (cFadePtrA < 0)
-//            {
-//                cFadePtrA += boundary;
-//                RAM_FadePtrA--;
-//                if (RAM_FadePtrA < memStart[0])
-//                {
-//                    RAM_FadePtrA = maxMem[0];
-//                }
-//            }
-//        }
-//    }
-//    else
+    modCount++;
+    if (modCount >= 0)
+    {
+        modCount = 0;
+        mod += 2*(dir);
+        if ((mod > 50)||(mod < -50))
+        {
+            dir = dir*(-1);
+        }
+    }
+
+    diff = diff>>4;
+    if ((-3 < diff) && (diff < 3))
+    {
+        timeA = nextTimeA;
+    }
+    else
+    {
+        timeA -= diff;
+    }
     
-    if (diff > 0)
+    //timeA += mod;
+    
+    readPtrA = writePtrA - timeA;    
+    RAM_ReadPtrA = RAM_WritePtrA;
+    if (readPtrA < 0)
     {
-        timeA -= 6;
+        readPtrA += boundary;
+        RAM_ReadPtrA--;
+        if (RAM_ReadPtrA < memStart[0])
+        {
+            RAM_ReadPtrA = maxMem[0];
+        }
     }
-    else if (diff < 0)
+    
+    rem = readPtrA % 2;
+    test = rem;
+    if (rem > 0)
     {
-        timeA += 6;
+        readPtrA -= 1;
     }
-//    {
-//        diff = diff/10;
-//        if ((-5 < diff) && (diff < 5))
-//        {
-//            timeA = nextTimeA;
-//        }
-//        else
-//        {
-//            timeA -= diff;
-//            timeA = timeA/2;
-//            timeA = 2*timeA;
-//        }
-//    }
+    
+}
+
+void processRxData(void)
+{   
+    int *rxPtr;
+    int *txPtr;
+    
+    if (count < 500)
+    {
+        count++;
+    }
+    else
+    {
+        if (buffer)
+        {
+            rxPtr = rxBufferA;
+            txPtr = txBufferA;
+        }
+        else
+        {
+            rxPtr = rxBufferB;
+            txPtr = txBufferB;
+        }
+        
+        // DO THE PROCESSING
+        blockDC(rxPtr, filteredInput, &xz1, &yz1);
+        //loopBack(filteredInput, txPtr);
+        //FFTroutine(fractSignal, bufferA);
+        delayEngine(filteredInput, bufferA, RAM_ReadPtrA, RAM_WritePtrA, readPtrA, writePtrA, fbkA, 0);//, cFadePtrA, RAM_FadePtrA, fade);
+        //delayEngine(rxBufferA, bufferB, RAM_ReadPtrB, RAM_WritePtrB, readPtrB, writePtrB, fbkB, 0);
+        mixer(bufferA, bufferB, bufferC, lvlA, 0x0, 0x0, txPtr);
+        
+        delayPtrIncrement();
+    }
+}
+
+void FFTinit(void)
+{
+    TwidFactorInit(LOG2_BLOCK_LENGTH, &twiddleFactorsFFT[0], 0x0); 
+    TwidFactorInit(LOG2_BLOCK_LENGTH, &twiddleFactorsIFFT[0], 0x1);
+    HanningInit(FFT_BLOCK_LENGTH, &window);
+}
+
+void initControls(void)
+{
+    // variable to concatenate data from multiple transfers
+    int byteLo = 0;
+    int byteHi = 0;
+    
+    // value of control voltage
+    int potVal = 0;
+    
+    // read Feedback A control voltage, map to value
+    I2C_ReadPIC(0xA0, &testValue);
+    fbkA = fbkValues[testValue];   
+    
+    // read Level A control voltage, map to value
+    I2C_ReadPIC(0xA4, &testValue);
+    lvlA = levelValues[testValue];
+
+    // read Time A control voltag
+    I2C_ReadPIC(0xA8, &testValue);
+    byteLo = testValue;
+    I2C_ReadPIC(0xA8, &testValue);
+    byteHi = testValue;
+    // concatenate to form 12 bit value, map to value 
+    potVal = ((byteHi << 8) | (byteLo & 0xFF));
+    timeA = timeValues[potVal];
     
     readPtrA = writePtrA - timeA;
     RAM_ReadPtrA = RAM_WritePtrA;
@@ -251,76 +321,52 @@ void setDelayTap(long int delayTime)
             RAM_ReadPtrA = maxMem[0];
         }
     }
-}
-
-void processRxData(void)
-{   
-    if (count < 500)
-    {
-        count++;
-    }
-    else
-    {
-        if (buffer)
-        {
-            blockDC(rxBufferA, filteredInput, &xz1, &yz1);
-            //loopBack(filteredInput, txBufferA);
-            //FFTroutine(fractSignal, bufferA);
-            delayEngine(filteredInput, bufferA, RAM_ReadPtrA, RAM_WritePtrA, readPtrA, writePtrA, fbkA, 0, cFadePtrA, RAM_FadePtrA, fade);
-            //delayEngine(rxBufferA, bufferB, RAM_ReadPtrB, RAM_WritePtrB, readPtrB, writePtrB, fbkB, 0);
-            mixer(bufferA, bufferB, bufferC, lvlA, lvlB, 0x0, txBufferA);
-        }
-        else
-        {
-            blockDC(rxBufferB, filteredInput, &xz1, &yz1);
-            //loopBack(filteredInput, txBufferB);
-            //FFTroutine(fractSignal, bufferA);
-            delayEngine(filteredInput, bufferA, RAM_ReadPtrA, RAM_WritePtrA, readPtrA, writePtrA, fbkA, 0, cFadePtrA, RAM_FadePtrA, fade);
-            //delayEngine(rxBufferB, bufferB, RAM_ReadPtrB, RAM_WritePtrB, readPtrB, writePtrB, fbkB, 0);
-            mixer(bufferA, bufferB, bufferC, lvlA, lvlB, 0x0, txBufferB);
-        }
-        if (fade > 0)
-        {
-            fadeCount++;
-            if (fadeCount >= 3)
-            {
-                fadeCount = 0;
-                fade++;
-                if (fade > 8)
-                {
-                    fade = 0;
-                    timeA = targTimeA;
-                }
-            }
-        }
-        delayPtrIncrement();
-    }
-}
-
-void FFTinit(void)
-{
-    TwidFactorInit(LOG2_BLOCK_LENGTH, &twiddleFactorsFFT[0], 0x0); 
-    TwidFactorInit(LOG2_BLOCK_LENGTH, &twiddleFactorsIFFT[0], 0x1);
-    HanningInit(FFT_BLOCK_LENGTH, &window);
+    
 }
 
 // read input parameters from control system
 void fetchData(void)
 {   
+    // variable to concatenate data from multiple transfers
+    int byteLo = 0;
+    int byteHi = 0;
+    
+    // value of control voltage
+    int potVal = 0;
+    
+    // read Feedback A control voltage, map to value
     I2C_ReadPIC(0xA0, &testValue);
     fbkA = fbkValues[testValue];   
-
+    
+    // read Level A control voltage, map to value
     I2C_ReadPIC(0xA4, &testValue);
     lvlA = levelValues[testValue];
 
+    // read Time A control voltag
     I2C_ReadPIC(0xA8, &testValue);
-    potVal = testValue;
+    byteLo = testValue;
+    I2C_ReadPIC(0xA8, &testValue);
+    byteHi = testValue;
+    // concatenate to form 12 bit value, map to value 
+    potVal = ((byteHi << 8) | (byteLo & 0xFF));
+    //potVal = potVal;
     nextTimeA = timeValues[potVal];
     
-    setDelayTap();
+    setDelayTap(0);
 }
 
-void system_setup(void)
+void confirmStartup(void)
+{
+    int startupComplete = 0;
+    
+    while (!startupComplete)
+    {
+        I2C_ReadPIC(0xAC, &testValue);
+        startupComplete = testValue;
+    }
+}
+
+void systemSetup(void)
 {
     clock_init();               // setup PLL clock for 40 MIPS
     interrupt_purge();          // ensure IRQ config not awry
@@ -331,16 +377,19 @@ void system_setup(void)
     
     interrupts_init();          // global interrupt setup
     
-    I2C_Init();
+    I2C_Init();                 // setup I2C link to controller
+    fetchData();                // collect initial parameters
     codec_setup();              // configure CODEC via I2C
     DMA_init();                 // configure DMA0 and DMA1 for ping-pong RX/TX
     I2S_init();                 // configure DCI for I2S with DMA
+    
+    initControls();             // set params based on control startup values
     
     SPI_init();                 // configure SPI module for SRAM
     purge_RAM();                // ensure all RAM is empty
     I2Sbuffer_init();           // fill RX and TX buffers with null values
     
-    fetchData();
+    confirmStartup();
     
     I2S_start();                // start up I2S and for initial DMA transfer
 }
@@ -348,25 +397,24 @@ void system_setup(void)
 // =========================== [ MAIN LOOP] ===================================
 int main(void)
 {    
-    //BartlettInit(FRAME, &cFadeBartlett[0]);
-    system_setup();    
-    
-    LATAbits.LATA1 = 0;
-    LATAbits.LATA0 = 0;
+    systemSetup();
+
+    // just in case flags got set during setup
     flagRX = 0;
     flagTX = 0;
     
     while(1)
     {
        if (flagRX & flagTX)
-       {              
-            processRxData();
+       {    
+            processRxData(); // all processing of audio happens now
             
             // reset flags and swap targeted buffer
             buffer ^= 1;
             flagRX = 0;
             flagTX = 0;
-            fetchData();
+           
+            fetchData(); // probe UI for new parameter values
        }
     }
 }
