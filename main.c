@@ -19,7 +19,7 @@
  *     21/11/2017  - I2S and DMA setup (adapted from MICROCHIP sample)
  *     28/11/2017  - Configure and test for PRI w/ PLL
  *                 - Setup I2C operation
- *     08/12/2017  - Setup and test SPI for SRAM.
+ *     08/12/2017  - Setup and test SPI for SRAM
  *                 - SPI test OK, need to reconfigure for 8-bit TX/RX
  *                 - SPI configured for 8-bit TX/RX, test OK
  *     11/12/2017  - Setup and test DCI for I2S, clock signals test OK  
@@ -44,13 +44,17 @@
  *     12/08/2018  - Organized DSP processing functions into engines.c
  *                 - Fixed framing I2S framing issue that was causing 2x interrupts
  *                 - Parameterized DSP engine variables for stability/flexibility
- *                 - Coded and tested mixer function (for up to three inputs)                    
+ *                 - Coded and tested mixer function (for up to three inputs)
+ *     24/09/2018  - Added adaptive SRAM read so enable reading across memory boundaries
+ *                 - Single pole low pass implemented for changing delay times
+ *                 - Delay time resolution increased to 12 bits (1024 values)
+ *                 - Added starup check to ensure controller and processor are synced                        
  * 
  * ------------------------------------------------------------------------
  * 
  *     Created November 3rd, 2017, 5:35 PM
  * 
- *     Last edit August 12th, 2018, 11:09 PM
+ *     Last edit September 24th, 2018, 11:26 AM
  * 
  * ======================================================================== */
 
@@ -197,6 +201,11 @@ void setDelayTap(long int delayTime)
     long int diff = 0;
     int rem = 0;
     int test = 0;
+    double a = 0.9;
+    double b = 1 - a;
+
+    //timeA = a*nextTimeA + b*TimeA;    // implement low pass to move towards new delay time
+
     diff = timeA - nextTimeA;
     
     modCount++;
@@ -221,7 +230,7 @@ void setDelayTap(long int delayTime)
     }
     
     //timeA += mod;
-    
+
     readPtrA = writePtrA - timeA;    
     RAM_ReadPtrA = RAM_WritePtrA;
     if (readPtrA < 0)
@@ -389,7 +398,7 @@ void systemSetup(void)
     purge_RAM();                // ensure all RAM is empty
     I2Sbuffer_init();           // fill RX and TX buffers with null values
     
-    confirmStartup();
+    confirmStartup();           // ensure that controller is ready for operation
     
     I2S_start();                // start up I2S and for initial DMA transfer
 }
