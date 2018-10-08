@@ -194,43 +194,62 @@ void delayPtrIncrement(void)
             RAM_WritePtrA = memStart[0];
         }
     }
+    
+    // Delay Line 'B'
+    writePtrB += BLOCK;     // increment write pointer by one block
+    
+    if (writePtrB > maxPtr)    // pointer is beyond memory boundary
+    {
+        writePtrB = 0;
+        RAM_WritePtrB++;
+        if (RAM_WritePtrB > maxMem[1])
+        {
+            RAM_WritePtrB = memStart[1];
+        }
+    }
+    
+    // Delay Line 'C'
+    writePtrC += BLOCK;     // increment write pointer by one block
+    
+    if (writePtrC > maxPtr)    // pointer is beyond memory boundary
+    {
+        writePtrC = 0;
+        RAM_WritePtrC++;
+        if (RAM_WritePtrC > maxMem[2])
+        {
+            RAM_WritePtrC = memStart[2];
+        }
+    }
 }
 
-void setDelayTap(long int delayTime)
+
+//    modCount++;
+//    if (modCount >= 0)
+//    {
+//        modCount = 0;
+//        mod += 2*(dir);
+//        if ((mod > 50)||(mod < -50))
+//        {
+//            dir = dir*(-1);
+//        }
+//    }
+//    
+//    timeA += mod;
+
+void setDelayTap(void)
 {
     long int diff = 0;
     int rem = 0;
-    int test = 0;
-    double a = 0.9;
+    double a = 0.95;
     double b = 1 - a;
-
-    //timeA = a*nextTimeA + b*TimeA;    // implement low pass to move towards new delay time
-
-    diff = timeA - nextTimeA;
+    double temp = 0;
     
-    modCount++;
-    if (modCount >= 0)
-    {
-        modCount = 0;
-        mod += 2*(dir);
-        if ((mod > 50)||(mod < -50))
-        {
-            dir = dir*(-1);
-        }
-    }
-
-    diff = diff>>4;
-    if ((-3 < diff) && (diff < 3))
-    {
-        timeA = nextTimeA;
-    }
-    else
-    {
-        timeA -= diff;
-    }
     
-    //timeA += mod;
-
+    // Delay Line 'A'
+    temp = a*timeA + b*nextTimeA;
+    
+    timeA = (long int)temp;
+    
     readPtrA = writePtrA - timeA;    
     RAM_ReadPtrA = RAM_WritePtrA;
     if (readPtrA < 0)
@@ -241,15 +260,56 @@ void setDelayTap(long int delayTime)
         {
             RAM_ReadPtrA = maxMem[0];
         }
-    }
-    
+    }    
     rem = readPtrA % 2;
-    test = rem;
     if (rem > 0)
     {
         readPtrA -= 1;
-    }
+    } 
     
+    // Delay Line 'B'
+    temp = a*timeB + b*nextTimeB;
+    
+    timeB = (long int)temp;
+    
+    readPtrB = writePtrB - timeB;    
+    RAM_ReadPtrB = RAM_WritePtrB;
+    if (readPtrB < 0)
+    {
+        readPtrB += boundary;
+        RAM_ReadPtrB--;
+        if (RAM_ReadPtrB < memStart[1])
+        {
+            RAM_ReadPtrB = maxMem[1];
+        }
+    }    
+    rem = readPtrB % 2;
+    if (rem > 0)
+    {
+        readPtrB -= 1;
+    }
+
+    // Delay Line 'C'
+    temp = a*timeC + b*nextTimeC;
+    
+    timeC = (long int)temp;
+    
+    readPtrC = writePtrC - timeC;    
+    RAM_ReadPtrC = RAM_WritePtrC;
+    if (readPtrC < 0)
+    {
+        readPtrC += boundary;
+        RAM_ReadPtrC--;
+        if (RAM_ReadPtrC < memStart[2])
+        {
+            RAM_ReadPtrC = maxMem[2];
+        }
+    }    
+    rem = readPtrC % 2;
+    if (rem > 0)
+    {
+        readPtrC -= 1;
+    }    
 }
 
 void processRxData(void)
@@ -275,12 +335,13 @@ void processRxData(void)
         }
         
         // DO THE PROCESSING
-        blockDC(rxPtr, filteredInput, &xz1, &yz1);
+        //blockDC(rxPtr, filteredInput, &xz1, &yz1);
         //loopBack(filteredInput, txPtr);
         //FFTroutine(fractSignal, bufferA);
-        delayEngine(filteredInput, bufferA, RAM_ReadPtrA, RAM_WritePtrA, readPtrA, writePtrA, fbkA, 0);//, cFadePtrA, RAM_FadePtrA, fade);
-        //delayEngine(rxBufferA, bufferB, RAM_ReadPtrB, RAM_WritePtrB, readPtrB, writePtrB, fbkB, 0);
-        mixer(bufferA, bufferB, bufferC, lvlA, 0x0, 0x0, txPtr);
+        delayEngine(rxPtr, bufferA, RAM_ReadPtrA, RAM_WritePtrA, readPtrA, writePtrA, fbkA, 0);
+        delayEngine(rxPtr, bufferB, RAM_ReadPtrB, RAM_WritePtrB, readPtrB, writePtrB, fbkB, 1);
+        delayEngine(rxPtr, bufferC, RAM_ReadPtrC, RAM_WritePtrC, readPtrC, writePtrC, fbkC, 2);
+        mixer(bufferA, bufferB, bufferC, lvlA, lvlB, lvlC, txPtr);
         
         delayPtrIncrement();
     }
@@ -298,7 +359,6 @@ void initControls(void)
     // variable to concatenate data from multiple transfers
     int byteLo = 0;
     int byteHi = 0;
-    
     // value of control voltage
     int potVal = 0;
     
@@ -339,29 +399,41 @@ void fetchData(void)
     // variable to concatenate data from multiple transfers
     int byteLo = 0;
     int byteHi = 0;
+    int index = 0;
+    int n = 0;
     
     // value of control voltage
     int potVal = 0;
     
-    // read Feedback A control voltage, map to value
-    I2C_ReadPIC(0xA0, &testValue);
-    fbkA = fbkValues[testValue];   
+    for (n = 0; n < 12; n++)
+    {
+        I2C_ReadPIC(paramAdd[n], &parameters[n]);
+    }
     
-    // read Level A control voltage, map to value
-    I2C_ReadPIC(0xA4, &testValue);
-    lvlA = levelValues[testValue];
-
-    // read Time A control voltag
-    I2C_ReadPIC(0xA8, &testValue);
-    byteLo = testValue;
-    I2C_ReadPIC(0xA8, &testValue);
-    byteHi = testValue;
-    // concatenate to form 12 bit value, map to value 
-    potVal = ((byteHi << 8) | (byteLo & 0xFF));
-    //potVal = potVal;
-    nextTimeA = timeValues[potVal];
+    fbkA = fbkValues[parameters[2]];
+    fbkB = fbkValues[parameters[6]];
+    fbkC = fbkValues[parameters[10]];
     
-    setDelayTap(0);
+    lvlA = fbkValues[parameters[3]];
+    lvlB = fbkValues[parameters[7]];
+    lvlC = fbkValues[parameters[11]];
+    
+    byteHi = parameters[0];
+    byteLo = parameters[1];
+    index = ((byteHi << 8) | (byteLo & 0xFF));
+    nextTimeA = timeValues[index];
+    
+    byteHi = parameters[4];
+    byteLo = parameters[5];
+    index = ((byteHi << 8) | (byteLo & 0xFF));
+    nextTimeB = timeValues[index];
+    
+    byteHi = parameters[8];
+    byteLo = parameters[9];
+    index = ((byteHi << 8) | (byteLo & 0xFF));
+    nextTimeC = timeValues[index];
+    
+    setDelayTap();
 }
 
 void confirmStartup(void)
@@ -392,13 +464,13 @@ void systemSetup(void)
     DMA_init();                 // configure DMA0 and DMA1 for ping-pong RX/TX
     I2S_init();                 // configure DCI for I2S with DMA
     
-    initControls();             // set params based on control startup values
+    //initControls();             // set params based on control startup values
     
     SPI_init();                 // configure SPI module for SRAM
     purge_RAM();                // ensure all RAM is empty
     I2Sbuffer_init();           // fill RX and TX buffers with null values
     
-    confirmStartup();           // ensure that controller is ready for operation
+    //confirmStartup();           // ensure that controller is ready for operation
     
     I2S_start();                // start up I2S and for initial DMA transfer
 }
