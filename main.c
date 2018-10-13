@@ -442,8 +442,9 @@ void confirmStartup(void)
     
     while (!startupComplete)
     {
-        I2C_ReadPIC(0xAC, &testValue);
+        I2C_ReadPIC(0xBF, &testValue);
         startupComplete = testValue;
+        __delay_ms(100);
     }
 }
 
