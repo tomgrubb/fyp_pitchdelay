@@ -338,9 +338,9 @@ void processRxData(void)
         //blockDC(rxPtr, filteredInput, &xz1, &yz1);
         //loopBack(filteredInput, txPtr);
         //FFTroutine(fractSignal, bufferA);
-        delayEngine(rxPtr, bufferA, RAM_ReadPtrA, RAM_WritePtrA, readPtrA, writePtrA, fbkA, 0);
-        delayEngine(rxPtr, bufferB, RAM_ReadPtrB, RAM_WritePtrB, readPtrB, writePtrB, fbkB, 1);
-        delayEngine(rxPtr, bufferC, RAM_ReadPtrC, RAM_WritePtrC, readPtrC, writePtrC, fbkC, 2);
+        delayEngine(rxPtr, bufferA, RAM_ReadPtrA, RAM_WritePtrA, readPtrA, writePtrA, fbkA, 0, armA);
+        delayEngine(rxPtr, bufferB, RAM_ReadPtrB, RAM_WritePtrB, readPtrB, writePtrB, fbkB, 1, armB);
+        delayEngine(rxPtr, bufferC, RAM_ReadPtrC, RAM_WritePtrC, readPtrC, writePtrC, fbkC, 2, armC);
         mixer(bufferA, bufferB, bufferC, lvlA, lvlB, lvlC, txPtr);
         
         delayPtrIncrement();
@@ -393,46 +393,110 @@ void initControls(void)
     
 }
 
+// set division based on pot value
+int setDiv(int value)
+{
+    int div;
+    
+    if (value < 1024)
+    {
+        div = 1;
+    }
+    else if (value < 2048)
+    {
+        div = 2;
+    }
+    else if (value < 3072)
+    {
+        div = 3;
+    }
+    else div = 4;
+    
+    return (div);
+}
+
 // read input parameters from control system
 void fetchData(void)
 {   
-    // variable to concatenate data from multiple transfers
-    int byteLo = 0;
-    int byteHi = 0;
-    int index = 0;
-    int n = 0;
+    int byteLo, byteHi, indexA, indexB, indexC, n, potVal, division;    
+    const float T = 0.02083; // time (ms) per sample
     
-    // value of control voltage
-    int potVal = 0;
-    
-    for (n = 0; n < 12; n++)
+    for (n = 0; n < 15; n++)
     {
         I2C_ReadPIC(paramAdd[n], &parameters[n]);
     }
     
+    // Set Global Time for division (Lock Mode)
+    masterTime.b[0] = 0x00;
+    masterTime.b[1] = (char)parameters[12];
+    masterTime.b[2] = (char)parameters[13];
+    masterTime.b[3] = (char)parameters[14];
+    
+    // Set Feedback Values
     fbkA = fbkValues[parameters[2]];
     fbkB = fbkValues[parameters[6]];
     fbkC = fbkValues[parameters[10]];
     
+    // Set Level Values
     lvlA = fbkValues[parameters[3]];
     lvlB = fbkValues[parameters[7]];
     lvlC = fbkValues[parameters[11]];
     
+    // Construct and set Time Values
     byteHi = parameters[0];
     byteLo = parameters[1];
-    index = ((byteHi << 8) | (byteLo & 0xFF));
-    nextTimeA = timeValues[index];
+    armA = byteHi>>7;
+    lock = (byteHi>>6);
+    lock &= ~(0x1<<1);
+    byteHi &= ~(0x03<<6);
+    indexA = ((byteHi << 8) | (byteLo & 0xFF));    
     
     byteHi = parameters[4];
     byteLo = parameters[5];
-    index = ((byteHi << 8) | (byteLo & 0xFF));
-    nextTimeB = timeValues[index];
+    armB = byteHi>>7;
+    byteHi &= ~(0x01<<7);
+    indexB = ((byteHi << 8) | (byteLo & 0xFF));
     
     byteHi = parameters[8];
     byteLo = parameters[9];
-    index = ((byteHi << 8) | (byteLo & 0xFF));
-    nextTimeC = timeValues[index];
+    armC = byteHi>>7;
+    byteHi &= ~(0x01<<7);
+    indexC = ((byteHi << 8) | (byteLo & 0xFF));
     
+    if (lock)
+    {
+        nextTimeA = (long int)(2*(masterTime.f / T));
+        division = setDiv(indexA);
+        nextTimeA /= division;
+        if (nextTimeA > timeValues[4095])
+        {
+            nextTimeA = timeValues[4095];
+        }
+        
+        nextTimeB = (long int)(2*(masterTime.f / T));
+        division = setDiv(indexB);
+        nextTimeB /= division;
+        if (nextTimeB > timeValues[4095])
+        {
+            nextTimeB = timeValues[4095];
+        }
+        
+        nextTimeC = (long int)(2*(masterTime.f / T));
+        division = setDiv(indexC);
+        nextTimeC /= division; 
+        if (nextTimeC > timeValues[4095])
+        {
+            nextTimeC = timeValues[4095];
+        }
+    }
+    else
+    {
+       nextTimeA = timeValues[indexA];
+       nextTimeB = timeValues[indexB];
+       nextTimeC = timeValues[indexC];
+    }        
+    
+    // Set new delay tap
     setDelayTap();
 }
 

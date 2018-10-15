@@ -10,7 +10,7 @@ int crossScaleA[8] = { 0x8000, 0x7000, 0x6000, 0x5000, 0x4000, 0x3000, 0x2000, 0
 int crossScaleB[8] = { 0x1000, 0x2000, 0x3000, 0x4000, 0x5000, 0x6000, 0x7000, 0x8000 };
 
 // 'DELAY' MODE
-void delayEngine(int *inBuff, int *outBuff, int ptrRdRAM, int ptrWrRAM, long int readPtr, long int writePtr, int fbk, char line)//, unsigned long cFadePtr, int cFadeRAM, int fade)
+void delayEngine(int *inBuff, int *outBuff, int ptrRdRAM, int ptrWrRAM, long int readPtr, long int writePtr, int fbk, char line, int arm)
 {
     int tempBuff[FRAME];
     
@@ -37,7 +37,10 @@ void delayEngine(int *inBuff, int *outBuff, int ptrRdRAM, int ptrWrRAM, long int
     }
     else VectorCopy(FRAME, &tempBuff, outBuff);
     // sum feedback and input buffers
-    VectorAdd(FRAME, &tempBuff, inBuff, &tempBuff);
+    if (!arm)
+    {
+        VectorAdd(FRAME, &tempBuff, inBuff, &tempBuff);
+    }
     // write mixed audio to delay line
     SPI_SRAM_BlockWrite(ptrWrRAM, writePtr, tempBuff);
 }

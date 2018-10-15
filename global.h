@@ -3,7 +3,7 @@
 
 // DEFINE GLOBAL VARIABLES
 
-int parameters[12];
+int parameters[15];
 
 int zDC[2] = {0,0}; // delayed values xz1 and yz1 for dc blocker
 int xz1 = 0;
@@ -28,6 +28,11 @@ int lvlA = 0x8000;
 int lvlB = 0x8000;
 int lvlC = 0x4000;
 
+// delay line enables
+int armA = 0;
+int armB = 0;
+int armC = 0;
+
 int indexTimeA = 50;
 unsigned long timeA = 24500;
 long int nextTimeA = 0;
@@ -45,6 +50,10 @@ char maxMem[3] = {1, 2, 3};
 char memStart[3] = {1, 2, 3};
 
 int timeCount = 0;
+
+typedef union float2bytes { float f; char b[sizeof(float)];} f2b;
+f2b masterTime;
+int lock = 0;
 
 // individual buffers for each delay tap
 int bufferA[FRAME];

@@ -19,35 +19,6 @@ extern int rxBufferB[FRAME] __attribute__((space(dma)));
 // DCI Initialization in I2S mode
 void I2S_init(void)
 {
-    /*
-    // [ dcPIC IS MASTER]
-    // DCI Control Register 1
-    DCICON1 = 0;
-    DCICON1bits.DCIEN = 0;      // disable DCI
-    DCICON1bits.DCISIDL = 0;    // operation continues when CPU is idle
-    DCICON1bits.DLOOP = 0;      // disable digital loop back
-    DCICON1bits.CSCKD = 0;      // CSCK pin is output (dsPIC controlled)
-    DCICON1bits.CSCKE = 0;      // sample rising edge, data changes on falling edge
-    DCICON1bits.COFSD = 0;      // COFS pin is output (dsPIC controlled)
-    DCICON1bits.UNFM = 0;       // transmit zeros upon underflow
-    DCICON1bits.CSDOM = 0;      // CSDOM pin drives LOW during disable
-    DCICON1bits.DJST = 0;       // TX/RX starts one cycle after frame sync
-    DCICON1bits.COFSM = 1;      // I2S Frame Sync mode
-         
-    // DCI Control Register 2
-    DCICON2bits.BLEN = 0x0;       // one data word buffered between interrupts
-    DCICON2bits.COFSG = 0x1;      // data frame has one word
-    DCICON2bits.WS = 0xF;         // data word size is 16 bits
-    
-    // DCI Control Register 3
-    DCICON3 = BCGVAL;             // clock is driven by dsPIC
-    
-    TSCON = 0x0003;               // enable two TX slot
-    RSCON = 0x0003;               // enable two RX slot
-    
-    */
-    
-    //                    [ CODEC IS MASTER ]
     // DCI Control Register 1
     //DCICON1 = 0;
     DCICON1bits.DCIEN = 0;      // disable DCI
@@ -60,20 +31,7 @@ void I2S_init(void)
     DCICON1bits.CSDOM = 0;      // CSDOM pin drives LOW during disable
     DCICON1bits.DJST = 0;       // TX/RX starts one cycle after frame sync
     DCICON1bits.COFSM = 1;      // I2S Frame Sync mode
-     
-    
-//    // DCI Control Register 2
-//    DCICON2bits.BLEN = 0x1;       // one data word buffered between interrupts
-//    DCICON2bits.COFSG = 0x1;      // data frame has one word
-//    DCICON2bits.WS = 0xF;         // data word size is 16 bits
-    
-    
-    //  WORKING!!!
-//    // DCI Control Register 2
-//    DCICON2bits.BLEN = 0x0;       // one data word buffered between interrupts
-//    DCICON2bits.COFSG = 0x0;      // data frame has one word
-//    DCICON2bits.WS = 0xF;         // data word size is 16 bits
-    
+
     // DCI Control Register 2
     DCICON2bits.BLEN = 0x0;       // one data word buffered between interrupts
     DCICON2bits.COFSG = 0x3;      // data frame has four words
@@ -102,16 +60,7 @@ void I2Sbuffer_init(void)
 }
 
 void I2S_start(void)   
-{
-    //TXBUF0 = 0xAAFF;
-    //TXBUF1 = 0xFAFA;
-    //temp = RXBUF0;
-    //temp = RXBUF1;
-    // Disable DCI Interrupt and Enable DCI module
-//    IPC15bits.DCIIP = 6;          // Enable DCI interrupts  
-//    IFS3bits.DCIIF = 0;           // DCI event interrupt flag 
-//    IEC3bits.DCIIE = 0;           // enable DCI Event interrupts
-    
+{    
     DMA0REQbits.FORCE = 1;
     while(DMA0REQbits.FORCE == 1);
     DMA0REQbits.FORCE = 1;
